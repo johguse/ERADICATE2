@@ -14,7 +14,7 @@ typedef struct __attribute__((packed)) {
 	uint found;
 } result;
 
-__kernel void eradicate2_init(__global ethhash * const pHash, __global ulong4 * const pSalt, __global result * const pResult, __global uchar * const pAddress, __global uchar * const pInitCode, const uchar initLength, const ulong4 seed, const uint size);
+__kernel void eradicate2_init(__global ethhash * const pHash, __global ulong4 * const pSalt, __global result * const pResult, __global uchar * const pAddress, __global uchar * const pInitCodeDigest, const ulong4 seed, const uint size);
 __kernel void eradicate2_iterate(__global const ethhash * const pHash, __global const ulong4 * const pSaltGlobal, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax);
 void eradicate2_result_update(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, const uchar score, const uchar scoreMax);
 void eradicate2_score_leading(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax);
@@ -25,13 +25,10 @@ void eradicate2_score_leadingrange(const ulong4 salt, __private const uchar * co
 void eradicate2_score_mirror(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax);
 void eradicate2_score_doubles(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax);
 
-__kernel void eradicate2_init(__global ethhash * const pHash, __global ulong4 * const pSalt, __global result * const pResult, __global uchar * const pAddress, __global uchar * const pInitCode, const uchar initLength, const ulong4 seed, const uint size) {
-	ethhash h;
-
+__kernel void eradicate2_init(__global ethhash * const pHash, __global ulong4 * const pSalt, __global result * const pResult, __global uchar * const pAddress, __global uchar * const pInitCodeDigest, const ulong4 seed, const uint size) {
 	// Zero data structures
 	for (int i = 0; i < 50; ++i) {
 		pHash->d[i] = 0;
-		h.d[i] = 0;
 	}
 
 	for (size_t i = 0; i < ERADICATE2_MAX_SCORE + 1; ++i) {
@@ -41,20 +38,13 @@ __kernel void eradicate2_init(__global ethhash * const pHash, __global ulong4 * 
 		}
 	}
 
-	// First calculate keccak256(init_code)
-	for (size_t i = 0; i < initLength; ++i) {
-		h.b[i] = pInitCode[i];
-	}
-	h.b[initLength] ^= 0x01;
-	sha3_keccakf(&h);
-
 	// Prepare main ethhash structure
 	pHash->b[0] = 0xff;
 	for (size_t i = 0; i < 20; ++i) {
 		pHash->b[1 + i] = pAddress[i];
 	}
 	for (size_t i = 0; i < 32; ++i) {
-		pHash->b[53 + i] = h.b[i];
+		pHash->b[53 + i] = pInitCodeDigest[i];
 	}
 	pHash->b[85] ^= 0x01;
 

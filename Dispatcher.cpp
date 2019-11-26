@@ -90,7 +90,7 @@ Dispatcher::Device::Device(Dispatcher & parent, cl_context & clContext, cl_progr
 	m_kernelIterate(createKernel(clProgram, "eradicate2_iterate")),
 	m_memHash(clContext, m_clQueue, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, 1, true),
 	m_memAddress(clContext, m_clQueue, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, 20),
-	m_memInitCode(clContext, m_clQueue, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, 20),
+	m_memInitCodeDigest(clContext, m_clQueue, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, 32),
 	m_memSalt(clContext, m_clQueue, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, size, true),
 	m_memResult(clContext, m_clQueue, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY, ERADICATE2_MAX_SCORE + 1),
 	m_memMode(clContext, m_clQueue, CL_MEM_READ_ONLY | CL_MEM_HOST_WRITE_ONLY, 1),
@@ -117,13 +117,13 @@ void Dispatcher::addDevice(cl_device_id clDeviceId, const size_t worksizeLocal, 
 	m_vDevices.push_back(pDevice);
 }
 
-void Dispatcher::run(const mode & mode, const std::string strAddress, const std::string strInitCode) {
+void Dispatcher::run(const mode & mode, const std::string strAddress, const std::string strInitCodeDigest) {
 	if (strAddress.size() != 20) {
 		throw std::runtime_error("Address must be exactly 20 bytes");
 	}
 
-	if (strInitCode.size() >= 199) {
-		throw std::runtime_error("Init code must be shorter than 199 characters");
+	if (strInitCodeDigest.size() != 32) {
+		throw std::runtime_error("Init code digest should be exactly 32 bytes");
 	}
 
 	m_eventFinished = clCreateUserEvent(m_clContext, NULL);
@@ -131,7 +131,7 @@ void Dispatcher::run(const mode & mode, const std::string strAddress, const std:
 
 	// Initialize all devices
 	for (auto it = m_vDevices.begin(); it != m_vDevices.end(); ++it) {
-		deviceInit(*(*it), mode, strAddress, strInitCode);
+		deviceInit(*(*it), mode, strAddress, strInitCodeDigest);
 	}
 	
 	m_quit = false;
@@ -151,7 +151,7 @@ void Dispatcher::run(const mode & mode, const std::string strAddress, const std:
 	m_eventFinished = NULL;
 }
 
-void Dispatcher::deviceInit(Device & d, const mode & mode, const std::string & strAddress, const std::string & strInitCode) {
+void Dispatcher::deviceInit(Device & d, const mode & mode, const std::string & strAddress, const std::string & strInitCodeDigest) {
 	// Set mode data
 	*d.m_memMode = mode;
 
@@ -159,14 +159,14 @@ void Dispatcher::deviceInit(Device & d, const mode & mode, const std::string & s
 		d.m_memAddress[i] = strAddress[i];
 	}
 
-	for (std::string::size_type i = 0; i < strInitCode.size(); ++i) {
-		d.m_memInitCode[i] = strInitCode[i];
+	for (std::string::size_type i = 0; i < 32; ++i) {
+		d.m_memInitCodeDigest[i] = strInitCodeDigest[i];
 	}
 
 	// Write everything kernels need
 	d.m_memMode.write(true);
 	d.m_memAddress.write(true);
-	d.m_memInitCode.write(true);
+	d.m_memInitCodeDigest.write(true);
 
 	// Pick random seed for salt
 	std::random_device rd;
@@ -185,10 +185,9 @@ void Dispatcher::deviceInit(Device & d, const mode & mode, const std::string & s
 	d.m_memSalt.setKernelArg(d.m_kernelInit, 1);
 	d.m_memResult.setKernelArg(d.m_kernelInit, 2);
 	d.m_memAddress.setKernelArg(d.m_kernelInit, 3);
-	d.m_memInitCode.setKernelArg(d.m_kernelInit, 4);
-	CLMemory<cl_uchar>::setKernelArg(d.m_kernelInit, 5, strInitCode.size());
-	CLMemory<cl_ulong4>::setKernelArg(d.m_kernelInit, 6, seed);
-	CLMemory<cl_uint>::setKernelArg(d.m_kernelInit, 7, m_size);
+	d.m_memInitCodeDigest.setKernelArg(d.m_kernelInit, 4);
+	CLMemory<cl_ulong4>::setKernelArg(d.m_kernelInit, 5, seed);
+	CLMemory<cl_uint>::setKernelArg(d.m_kernelInit, 6, m_size);
 
 	// Kernel arguments - eradicate2_iterate
 	// __kernel void eradicate2_iterate(__global const ethhash * const pHash, __global const ulong4 * const pSaltGlobal, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax);

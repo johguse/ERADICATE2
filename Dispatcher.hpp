@@ -52,7 +52,7 @@ class Dispatcher {
 
 			CLMemory<ethhash> m_memHash;
 			CLMemory<cl_uchar> m_memAddress;
-			CLMemory<cl_uchar> m_memInitCode;
+			CLMemory<cl_uchar> m_memInitCodeDigest;
 			CLMemory<cl_ulong4> m_memSalt;
 			CLMemory<result> m_memResult;
 			CLMemory<mode> m_memMode;
@@ -66,7 +66,7 @@ class Dispatcher {
 		~Dispatcher();
 
 		void addDevice(cl_device_id clDeviceId, const size_t worksizeLocal, const size_t index);
-		void run(const mode & mode, const std::string strAddress, const std::string strInitCode);
+		void run(const mode & mode, const std::string strAddress, const std::string strInitCodeDigest);
 
 	private:
 		void deviceInit(Device & d, const mode & mode, const std::string & strAddress, const std::string & strInitCode);

@@ -25,6 +25,7 @@
 #include "ArgParser.hpp"
 #include "ModeFactory.hpp"
 #include "help.hpp"
+#include "sha3.hpp"
 
 std::string readFile(const char * const szFilename)
 {
@@ -141,6 +142,25 @@ std::string getDeviceCacheFilename(cl_device_id & d) {
 	return "cache-opencl." + lexical_cast::write(uniqueId);
 }
 
+std::string keccakDigest(const std::string data) {
+	char digest[32];
+	sha3(data.c_str(), data.size(), digest, 32);
+	return std::string(digest, 32);
+}
+
+void trim(std::string & s) {
+	const auto iLeft = s.find_first_not_of(" \t\r\n");
+	if (iLeft != std::string::npos) {
+		s.erase(0, iLeft);
+	}
+
+	const auto iRight = s.find_last_not_of(" \t\r\n");
+	if (iRight != std::string::npos) {
+		const auto count = s.length() - iRight - 1;
+		s.erase(iRight + 1, count);
+	}
+}
+
 int main(int argc, char * * argv) {
 	try {
 		ArgParser argp(argc, argv);
@@ -164,6 +184,7 @@ int main(int argc, char * * argv) {
 		size_t size = 16777216; // Uses ~512MB VRAM
 		std::string strAddress;
 		std::string strInitCode;
+		std::string strInitCodeFile;
 
 		argp.addSwitch('h', "help", bHelp);
 		argp.addSwitch('0', "benchmark", bModeBenchmark);
@@ -185,6 +206,7 @@ int main(int argc, char * * argv) {
 		argp.addSwitch('S', "size", size);
 		argp.addSwitch('A', "address", strAddress);
 		argp.addSwitch('I', "init-code", strInitCode);
+		argp.addSwitch('i', "init-code-file", strInitCodeFile);
 
 		if (!argp.parse()) {
 			std::cout << "error: bad arguments, try again :<" << std::endl;
@@ -196,9 +218,20 @@ int main(int argc, char * * argv) {
 			return 0;
 		}
 
-		// Parse hexadecimal values
-		std::string strAddressBinary = parseHexadecimalBytes(strAddress);
-		std::string strInitCodeBinary = parseHexadecimalBytes(strInitCode);
+		// Parse hexadecimal values and/or read init code from file
+		if (strInitCodeFile != "") {
+			std::ifstream ifs(strInitCodeFile);
+			if (!ifs.is_open()) {
+				std::cout << "error: failed to open input file for init code" << std::endl;
+				return 1;
+			}
+			strInitCode.assign(std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>());
+		}
+
+		trim(strInitCode);
+		const std::string strAddressBinary = parseHexadecimalBytes(strAddress);
+		const std::string strInitCodeBinary = parseHexadecimalBytes(strInitCode);
+		const std::string strInitCodeDigest = keccakDigest(strInitCodeBinary);
 
 		mode mode = ModeFactory::benchmark();
 		if (bModeBenchmark) {
@@ -343,7 +376,7 @@ int main(int argc, char * * argv) {
 			d.addDevice(i, worksizeLocal, mDeviceIndex[i]);
 		}
 
-		d.run(mode, strAddressBinary, strInitCodeBinary);
+		d.run(mode, strAddressBinary, strInitCodeDigest);
 		clReleaseContext(clContext);
 		return 0;
 	} catch (std::runtime_error & e) {
@@ -354,4 +387,3 @@ int main(int argc, char * * argv) {
 
 	return 1;
 }
-
