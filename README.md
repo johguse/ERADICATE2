@@ -5,6 +5,12 @@ usage: ./ERADICATE2 [OPTIONS]
   Input:
     -A, --address           Target address
     -I, --init-code         Init code
+    -i, --init-code-file    Read init code from this file
+
+    The init code should be expressed as a hexadecimal string having the
+    prefix 0x both when expressed on the command line with -I and in the
+    file pointed to by -i if used. Any whitespace will be trimmed. If no
+    init code is specified it defaults to an empty string.
 
   Basic modes:
     --benchmark             Run without any scoring, a benchmark.
@@ -44,7 +50,7 @@ usage: ./ERADICATE2 [OPTIONS]
 
   About:
     ERADICATE2 is a vanity address generator for CREATE2 addresses that
-        utilizes computing power from GPUs using OpenCL.
+	utilizes computing power from GPUs using OpenCL.
 
     Author: Johan Gustafsson <johan@johgu.se>
     Beer donations: 0x000dead000ae1c8e8ac27103e4ff65f42a4e9203
