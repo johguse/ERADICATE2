@@ -12,14 +12,9 @@
 
 #if defined(__APPLE__) || defined(__MACOSX)
 #include <OpenCL/cl.h>
-#include <OpenCL/cl_ext.h> // Included to get topology to get an actual unique identifier per device
 #else
 #include <CL/cl.h>
-#include <CL/cl_ext.h> // Included to get topology to get an actual unique identifier per device
 #endif
-
-#define CL_DEVICE_PCI_BUS_ID_NV  0x4008
-#define CL_DEVICE_PCI_SLOT_ID_NV 0x4009
 
 #include "hexadecimal.hpp"
 #include "Dispatcher.hpp"
@@ -117,18 +112,6 @@ std::vector<std::string> getBinaries(cl_program & clProgram) {
 	return vReturn;
 }
 
-unsigned int getUniqueDeviceIdentifier(const cl_device_id & deviceId) {
-#if defined(CL_DEVICE_TOPOLOGY_AMD)
-	auto topology = clGetWrapper<cl_device_topology_amd>(clGetDeviceInfo, deviceId, CL_DEVICE_TOPOLOGY_AMD);
-	if (topology.raw.type == CL_DEVICE_TOPOLOGY_TYPE_PCIE_AMD) {
-		return (topology.pcie.bus << 16) + (topology.pcie.device << 8) + topology.pcie.function;
-	}
-#endif
-	cl_int bus_id = clGetWrapper<cl_int>(clGetDeviceInfo, deviceId, CL_DEVICE_PCI_BUS_ID_NV);
-	cl_int slot_id = clGetWrapper<cl_int>(clGetDeviceInfo, deviceId, CL_DEVICE_PCI_SLOT_ID_NV);
-	return (bus_id << 16) + slot_id;
-}
-
 template <typename T> bool printResult(const T & t, const cl_int & err) {
 	std::cout << ((t == NULL) ? lexical_cast::write(err) : "OK") << std::endl;
 	return t == NULL;
@@ -137,11 +120,6 @@ template <typename T> bool printResult(const T & t, const cl_int & err) {
 bool printResult(const cl_int err) {
 	std::cout << ((err != CL_SUCCESS) ? lexical_cast::write(err) : "OK") << std::endl;
 	return err != CL_SUCCESS;
-}
-
-std::string getDeviceCacheFilename(cl_device_id & d) {
-	const auto uniqueId = getUniqueDeviceIdentifier(d);
-	return "cache-opencl." + lexical_cast::write(uniqueId);
 }
 
 std::string keccakDigest(const std::string data) {
@@ -215,7 +193,6 @@ int main(int argc, char * * argv) {
 		std::vector<size_t> vDeviceSkipIndex;
 		size_t worksizeLocal = 128;
 		size_t worksizeMax = 0; // Will be automatically determined later if not overriden by user
-		bool bNoCache = false;
 		size_t size = 16777216;
 		std::string strAddress;
 		std::string strInitCode;
@@ -237,7 +214,6 @@ int main(int argc, char * * argv) {
 		argp.addMultiSwitch('s', "skip", vDeviceSkipIndex);
 		argp.addSwitch('w', "work", worksizeLocal);
 		argp.addSwitch('W', "work-max", worksizeMax);
-		argp.addSwitch('n', "no-cache", bNoCache);
 		argp.addSwitch('S', "size", size);
 		argp.addSwitch('A', "address", strAddress);
 		argp.addSwitch('I', "init-code", strInitCode);
@@ -267,7 +243,7 @@ int main(int argc, char * * argv) {
 		const std::string strAddressBinary = parseHexadecimalBytes(strAddress);
 		const std::string strInitCodeBinary = parseHexadecimalBytes(strInitCode);
 		const std::string strInitCodeDigest = keccakDigest(strInitCodeBinary);
-		const std::string strPreprocessorInitHash = makePreprocessorInitHashExpression(strAddressBinary, strInitCodeDigest);
+		const std::string strPreprocessorInitStructure = makePreprocessorInitHashExpression(strAddressBinary, strInitCodeDigest);
 
 		mode mode = ModeFactory::benchmark();
 		if (bModeBenchmark) {
@@ -302,7 +278,6 @@ int main(int argc, char * * argv) {
 		std::vector<std::string> vDeviceBinary;
 		std::vector<size_t> vDeviceBinarySize;
 		cl_int errorCode;
-		bool bUsedCache = false;
 
 		std::cout << "Devices:" << std::endl;
 		for (size_t i = 0; i < vFoundDevices.size(); ++i) {
@@ -316,19 +291,8 @@ int main(int argc, char * * argv) {
 			const auto strName = clGetWrapperString(clGetDeviceInfo, deviceId, CL_DEVICE_NAME);
 			const auto computeUnits = clGetWrapper<cl_uint>(clGetDeviceInfo, deviceId, CL_DEVICE_MAX_COMPUTE_UNITS);
 			const auto globalMemSize = clGetWrapper<cl_ulong>(clGetDeviceInfo, deviceId, CL_DEVICE_GLOBAL_MEM_SIZE);
-			bool precompiled = false;
 
-			// Check if there's a prebuilt binary for this device and load it
-			if(!bNoCache) {
-				std::ifstream fileIn(getDeviceCacheFilename(deviceId), std::ios::binary);
-				if (fileIn.is_open()) {
-					vDeviceBinary.push_back(std::string((std::istreambuf_iterator<char>(fileIn)), std::istreambuf_iterator<char>()));
-					vDeviceBinarySize.push_back(vDeviceBinary.back().size());
-					precompiled = true;
-				}
-			}
-
-			std::cout << "  GPU" << i << ": " << strName << ", " << globalMemSize << " bytes available, " << computeUnits << " compute units (precompiled = " << (precompiled ? "yes" : "no") << ")" << std::endl;
+			std::cout << "  GPU" << i << ": " << strName << ", " << globalMemSize << " bytes available, " << computeUnits << " compute units" << std::endl;
 			vDevices.push_back(vFoundDevices[i]);
 			mDeviceIndex[vFoundDevices[i]] = i;
 		}
@@ -348,8 +312,6 @@ int main(int argc, char * * argv) {
 		cl_program clProgram;
 		if (vDeviceBinary.size() == vDevices.size()) {
 			// Create program from binaries
-			bUsedCache = true;
-
 			std::cout << "  Loading kernel from binary..." << std::flush;
 			const unsigned char * * pKernels = new const unsigned char *[vDevices.size()];
 			for (size_t i = 0; i < vDeviceBinary.size(); ++i) {
@@ -378,7 +340,7 @@ int main(int argc, char * * argv) {
 		// Build the program
 		std::cout << "  Building program..." << std::flush;
 
-		const std::string strBuildOptions = "-D ERADICATE2_MAX_SCORE=" + lexical_cast::write(ERADICATE2_MAX_SCORE) + " -D ERADICATE2_INITHASH=" + strPreprocessorInitHash;
+		const std::string strBuildOptions = "-D ERADICATE2_MAX_SCORE=" + lexical_cast::write(ERADICATE2_MAX_SCORE) + " -D ERADICATE2_INITHASH=" + strPreprocessorInitStructure;
 		if (printResult(clBuildProgram(clProgram, vDevices.size(), vDevices.data(), strBuildOptions.c_str(), NULL, NULL))) {
 #ifdef ERADICATE2_DEBUG
 			std::cout << std::endl;
@@ -393,17 +355,6 @@ int main(int argc, char * * argv) {
 			delete[] szLog;
 #endif
 			return 1;
-		}
-
-		// Save binary for each device to improve future start times
-		if( !bUsedCache && !bNoCache ) {
-			std::cout << "  Saving program..." << std::flush;
-			auto binaries = getBinaries(clProgram);
-			for (size_t i = 0; i < binaries.size(); ++i) {
-				std::ofstream fileOut(getDeviceCacheFilename(vDevices[i]), std::ios::binary);
-				fileOut.write(binaries[i].data(), binaries[i].size());
-			}
-			std::cout << "OK" << std::endl;
 		}
 
 		std::cout << std::endl;

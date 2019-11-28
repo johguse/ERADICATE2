@@ -52,7 +52,7 @@ class Dispatcher {
 			CLMemory<result> m_memResult;
 			CLMemory<mode> m_memMode;
 
-			cl_ulong m_round;
+			cl_uint m_round;
 		};
 
 	public:

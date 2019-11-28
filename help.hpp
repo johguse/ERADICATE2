@@ -40,7 +40,6 @@ usage: ./ERADICATE2 [OPTIONS]
 
   Device control:
     -s, --skip <index>      Skip device given by index.
-    -n, --no-cache          Don't load cached pre-compiled version of kernel.
 
   Tweaking:
     -w, --work <size>       Set OpenCL local work size. [default = 64]
