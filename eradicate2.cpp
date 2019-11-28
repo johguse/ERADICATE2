@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <vector>
+#include <random>
 #include <map>
 #include <set>
 
@@ -24,6 +25,7 @@
 #include "Dispatcher.hpp"
 #include "ArgParser.hpp"
 #include "ModeFactory.hpp"
+#include "types.hpp"
 #include "help.hpp"
 #include "sha3.hpp"
 
@@ -161,6 +163,39 @@ void trim(std::string & s) {
 	}
 }
 
+std::string makePreprocessorInitHashExpression(const std::string & strAddressBinary, const std::string & strInitCodeDigest) {
+	std::random_device rd;
+	std::mt19937_64 eng(rd());
+	std::uniform_int_distribution<unsigned int> distr; // C++ requires integer type: "C2338	note : char, signed char, unsigned char, int8_t, and uint8_t are not allowed"
+	ethhash h = { 0 };
+
+	h.b[0] = 0xff;
+	for (int i = 0; i < 20; ++i) {
+		h.b[i + 1] = strAddressBinary[i];
+	}
+
+	for (int i = 0; i < 32; ++i) {
+		h.b[i + 21] = distr(eng);
+	}
+
+	for (int i = 0; i < 32; ++i) {
+		h.b[i + 53] = strInitCodeDigest[i];
+	}
+
+	h.b[85] ^= 0x01;
+
+	std::ostringstream oss;
+	oss << std::hex;
+	for (int i = 0; i < 25; ++i) {
+		oss << "0x" << h.q[i];
+		if (i + 1 != 25) {
+			oss << ",";
+		}
+	}
+
+	return oss.str();
+}
+
 int main(int argc, char * * argv) {
 	try {
 		ArgParser argp(argc, argv);
@@ -178,10 +213,10 @@ int main(int argc, char * * argv) {
 		int rangeMin = 0;
 		int rangeMax = 0;
 		std::vector<size_t> vDeviceSkipIndex;
-		size_t worksizeLocal = 64;
+		size_t worksizeLocal = 128;
 		size_t worksizeMax = 0; // Will be automatically determined later if not overriden by user
 		bool bNoCache = false;
-		size_t size = 16777216; // Uses ~512MB VRAM
+		size_t size = 16777216;
 		std::string strAddress;
 		std::string strInitCode;
 		std::string strInitCodeFile;
@@ -232,6 +267,7 @@ int main(int argc, char * * argv) {
 		const std::string strAddressBinary = parseHexadecimalBytes(strAddress);
 		const std::string strInitCodeBinary = parseHexadecimalBytes(strInitCode);
 		const std::string strInitCodeDigest = keccakDigest(strInitCodeBinary);
+		const std::string strPreprocessorInitHash = makePreprocessorInitHashExpression(strAddressBinary, strInitCodeDigest);
 
 		mode mode = ModeFactory::benchmark();
 		if (bModeBenchmark) {
@@ -341,7 +377,8 @@ int main(int argc, char * * argv) {
 
 		// Build the program
 		std::cout << "  Building program..." << std::flush;
-		const std::string strBuildOptions = "-D ERADICATE2_MAX_SCORE=" + lexical_cast::write(ERADICATE2_MAX_SCORE);
+
+		const std::string strBuildOptions = "-D ERADICATE2_MAX_SCORE=" + lexical_cast::write(ERADICATE2_MAX_SCORE) + " -D ERADICATE2_INITHASH=" + strPreprocessorInitHash;
 		if (printResult(clBuildProgram(clProgram, vDevices.size(), vDevices.data(), strBuildOptions.c_str(), NULL, NULL))) {
 #ifdef ERADICATE2_DEBUG
 			std::cout << std::endl;
@@ -376,7 +413,7 @@ int main(int argc, char * * argv) {
 			d.addDevice(i, worksizeLocal, mDeviceIndex[i]);
 		}
 
-		d.run(mode, strAddressBinary, strInitCodeDigest);
+		d.run(mode);
 		clReleaseContext(clContext);
 		return 0;
 	} catch (std::runtime_error & e) {

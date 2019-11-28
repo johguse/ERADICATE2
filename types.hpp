@@ -22,8 +22,8 @@ typedef struct {
 
 #pragma pack(push, 1)
 typedef struct {
-	cl_uchar foundHash[20];
-	cl_ulong4 salt;
+	cl_uchar salt[32];
+	cl_uchar hash[20];
 	cl_uint found;
 } result;
 #pragma pack(pop)

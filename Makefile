@@ -1,6 +1,6 @@
 CC=g++
 CDEFINES=
-SOURCES=Dispatcher.cpp eradicate2.cpp hexadecimal.cpp ModeFactory.cpp SpeedSample.cpp sha3.cpp
+SOURCES=Dispatcher.cpp eradicate2.cpp hexadecimal.cpp ModeFactory.cpp Speed.cpp sha3.cpp
 OBJECTS=$(SOURCES:.cpp=.o)
 EXECUTABLE=ERADICATE2.x64
 

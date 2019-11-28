@@ -9,71 +9,31 @@ typedef struct {
 } mode;
 
 typedef struct __attribute__((packed)) {
-	uchar foundHash[20];
-	ulong4 salt;
+	uchar salt[32];
+	uchar hash[20];
 	uint found;
 } result;
 
-__kernel void eradicate2_init(__global ethhash * const pHash, __global ulong4 * const pSalt, __global result * const pResult, __global uchar * const pAddress, __global uchar * const pInitCodeDigest, const ulong4 seed, const uint size);
-__kernel void eradicate2_iterate(__global const ethhash * const pHash, __global const ulong4 * const pSaltGlobal, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax);
-void eradicate2_result_update(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, const uchar score, const uchar scoreMax);
-void eradicate2_score_leading(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax);
-void eradicate2_score_benchmark(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax);
-void eradicate2_score_matching(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax);
-void eradicate2_score_range(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax);
-void eradicate2_score_leadingrange(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax);
-void eradicate2_score_mirror(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax);
-void eradicate2_score_doubles(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax);
+__kernel void eradicate2_iterate(__global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const ulong round);
+void eradicate2_result_update(const uchar * const hash, __global result * const pResult, const uchar score, const uchar scoreMax, const ulong round);
+void eradicate2_score_leading(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const ulong round);
+void eradicate2_score_benchmark(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const ulong round);
+void eradicate2_score_matching(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const ulong round);
+void eradicate2_score_range(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const ulong round);
+void eradicate2_score_leadingrange(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const ulong round);
+void eradicate2_score_mirror(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const ulong round);
+void eradicate2_score_doubles(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const ulong round);
 
-__kernel void eradicate2_init(__global ethhash * const pHash, __global ulong4 * const pSalt, __global result * const pResult, __global uchar * const pAddress, __global uchar * const pInitCodeDigest, const ulong4 seed, const uint size) {
-	// Zero data structures
-	for (int i = 0; i < 50; ++i) {
-		pHash->d[i] = 0;
-	}
+__kernel void eradicate2_iterate(__global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const ulong round) {
+	ethhash h = { .q = { ERADICATE2_INITHASH } };
 
-	for (size_t i = 0; i < ERADICATE2_MAX_SCORE + 1; ++i) {
-		pResult[i].found = 0;
-		for (size_t j = 0; j < 20; ++j) {
-			pResult[i].foundHash[j] = 0xde;
-		}
-	}
-
-	// Prepare main ethhash structure
-	pHash->b[0] = 0xff;
-	for (size_t i = 0; i < 20; ++i) {
-		pHash->b[1 + i] = pAddress[i];
-	}
-	for (size_t i = 0; i < 32; ++i) {
-		pHash->b[53 + i] = pInitCodeDigest[i];
-	}
-	pHash->b[85] ^= 0x01;
-
-	// Prepare all salt structures
-	for (size_t i = 0; i < size; ++i) {
-		pSalt[i].x = seed.x + i;
-		pSalt[i].y = seed.y;
-		pSalt[i].z = seed.z;
-		pSalt[i].w = seed.w;
-	}
-}
-
-__kernel void eradicate2_iterate(__global const ethhash * const pHash, __global const ulong4 * const pSaltGlobal, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax) {
-	const size_t id = get_global_id(0);
-
-	ethhash h = *pHash;
-	const ulong4 salt = pSaltGlobal[id];
-	const uchar * const pSalt = (uchar * const) &salt;
-
-	// Write salt
-	for (size_t i = 0; i < 32; ++i) {
-		h.b[21 + i] = pSalt[i];
-	}
+	// Salt have index h.b[21:52] inclusive, which covers QWORDS with index h.q[3:5] inclusive (they represent h.b[24:47] inclusive)
+	// We use two of those three QWORD indexes to generate a unique salt value for each round.
+	h.q[3] += get_global_id(0);
+	h.q[4] += round;
 
 	// Hash
 	sha3_keccakf(&h);
-
-	// Iterate salt
-	++pSaltGlobal[id].w;
 
 	/* enum class ModeFunction {
 	 *      Benchmark, Matching, Leading, Range, Mirror, Doubles, LeadingRange
@@ -81,51 +41,60 @@ __kernel void eradicate2_iterate(__global const ethhash * const pHash, __global 
 	 */
 	switch (pMode->function) {
 	case Benchmark:
-		eradicate2_score_benchmark(salt, &h.b[12], pResult, pMode, scoreMax);
+		eradicate2_score_benchmark(h.b + 12, pResult, pMode, scoreMax, round);
 		break;
 
 	case Matching:
-		eradicate2_score_matching(salt, &h.b[12], pResult, pMode, scoreMax);
+		eradicate2_score_matching(h.b + 12, pResult, pMode, scoreMax, round);
 		break;
 
 	case Leading:
-		eradicate2_score_leading(salt, &h.b[12], pResult, pMode, scoreMax);
+		eradicate2_score_leading(h.b + 12, pResult, pMode, scoreMax, round);
 		break;
 
 	case Range:
-		eradicate2_score_range(salt, &h.b[12], pResult, pMode, scoreMax);
+		eradicate2_score_range(h.b + 12, pResult, pMode, scoreMax, round);
 		break;
 
 	case Mirror:
-		eradicate2_score_mirror(salt, &h.b[12], pResult, pMode, scoreMax);
+		eradicate2_score_mirror(h.b + 12, pResult, pMode, scoreMax, round);
 		break;
 
 	case Doubles:
-		eradicate2_score_doubles(salt, &h.b[12], pResult, pMode, scoreMax);
+		eradicate2_score_doubles(h.b + 12, pResult, pMode, scoreMax, round);
 		break;
 
 	case LeadingRange:
-		eradicate2_score_leadingrange(salt, &h.b[12], pResult, pMode, scoreMax);
+		eradicate2_score_leadingrange(h.b + 12, pResult, pMode, scoreMax, round);
 		break;
 	}
 }
 
-void eradicate2_result_update(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, const uchar score, const uchar scoreMax) {
+void eradicate2_result_update(const uchar * const H, __global result * const pResult, const uchar score, const uchar scoreMax, const ulong round) {
 	if (score && score > scoreMax) {
-		uchar hasResult = atomic_inc(&pResult[score].found); // NOTE: If "too many" results are found it'll wrap around to 0 again and overwrite last result. Only relevant if global worksize exceeds MAX(uint).
+		const uchar hasResult = atomic_inc(&pResult[score].found); // NOTE: If "too many" results are found it'll wrap around to 0 again and overwrite last result. Only relevant if global worksize exceeds MAX(uint).
 
 		// Save only one result for each score, the first.
 		if (hasResult == 0) {
-			pResult[score].salt = salt;
+			// Reconstruct state with hash and extract salt
+			ethhash h = { .q = { ERADICATE2_INITHASH } };
+			h.q[3] += get_global_id(0);
+			h.q[4] += round;
+
+			ethhash be;
+
+			for (int i = 0; i < 32; ++i) {
+				pResult[score].salt[i] = h.b[i + 21];
+			}
 
 			for (int i = 0; i < 20; ++i) {
-				pResult[score].foundHash[i] = hash[i];
+				pResult[score].hash[i] = H[i];
 			}
 		}
 	}
 }
 
-void eradicate2_score_leading(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax) {
+void eradicate2_score_leading(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const ulong round) {
 	int score = 0;
 
 	for (int i = 0; i < 20; ++i) {
@@ -142,17 +111,17 @@ void eradicate2_score_leading(const ulong4 salt, __private const uchar * const h
 		}
 	}
 
-	eradicate2_result_update(salt, hash, pResult, score, scoreMax);
+	eradicate2_result_update(hash, pResult, score, scoreMax, round);
 }
 
-void eradicate2_score_benchmark(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax) {
+void eradicate2_score_benchmark(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const ulong round) {
 	const size_t id = get_global_id(0);
 	int score = 0;
 
-	eradicate2_result_update(salt, hash, pResult, score, scoreMax);
+	eradicate2_result_update(hash, pResult, score, scoreMax, round);
 }
 
-void eradicate2_score_matching(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax) {
+void eradicate2_score_matching(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const ulong round) {
 	const size_t id = get_global_id(0);
 	int score = 0;
 
@@ -162,10 +131,10 @@ void eradicate2_score_matching(const ulong4 salt, __private const uchar * const 
 		}
 	}
 
-	eradicate2_result_update(salt, hash, pResult, score, scoreMax);
+	eradicate2_result_update(hash, pResult, score, scoreMax, round);
 }
 
-void eradicate2_score_range(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax) {
+void eradicate2_score_range(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const ulong round) {
 	const size_t id = get_global_id(0);
 	int score = 0;
 
@@ -182,10 +151,10 @@ void eradicate2_score_range(const ulong4 salt, __private const uchar * const has
 		}
 	}
 
-	eradicate2_result_update(salt, hash, pResult, score, scoreMax);
+	eradicate2_result_update(hash, pResult, score, scoreMax, round);
 }
 
-void eradicate2_score_leadingrange(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax) {
+void eradicate2_score_leadingrange(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const ulong round) {
 	const size_t id = get_global_id(0);
 	int score = 0;
 
@@ -208,10 +177,10 @@ void eradicate2_score_leadingrange(const ulong4 salt, __private const uchar * co
 		}
 	}
 
-	eradicate2_result_update(salt, hash, pResult, score, scoreMax);
+	eradicate2_result_update(hash, pResult, score, scoreMax, round);
 }
 
-void eradicate2_score_mirror(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax) {
+void eradicate2_score_mirror(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const ulong round) {
 	const size_t id = get_global_id(0);
 	int score = 0;
 
@@ -235,10 +204,10 @@ void eradicate2_score_mirror(const ulong4 salt, __private const uchar * const ha
 		++score;
 	}
 
-	eradicate2_result_update(salt, hash, pResult, score, scoreMax);
+	eradicate2_result_update(hash, pResult, score, scoreMax, round);
 }
 
-void eradicate2_score_doubles(const ulong4 salt, __private const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax) {
+void eradicate2_score_doubles(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const ulong round) {
 	const size_t id = get_global_id(0);
 	int score = 0;
 
@@ -251,5 +220,5 @@ void eradicate2_score_doubles(const ulong4 salt, __private const uchar * const h
 		}
 	}
 
-	eradicate2_result_update(salt, hash, pResult, score, scoreMax);
+	eradicate2_result_update(hash, pResult, score, scoreMax, round);
 }

@@ -14,8 +14,8 @@
 #include <CL/cl.h>
 #endif
 
-#include "SpeedSample.hpp"
 #include "CLMemory.hpp"
+#include "Speed.hpp"
 #include "types.hpp"
 
 #define ERADICATE2_SPEEDSAMPLES 20
@@ -47,18 +47,12 @@ class Dispatcher {
 			cl_uchar m_clScoreMax;
 			cl_command_queue m_clQueue;
 
-			cl_kernel m_kernelInit;
 			cl_kernel m_kernelIterate;
 
-			CLMemory<ethhash> m_memHash;
-			CLMemory<cl_uchar> m_memAddress;
-			CLMemory<cl_uchar> m_memInitCodeDigest;
-			CLMemory<cl_ulong4> m_memSalt;
 			CLMemory<result> m_memResult;
 			CLMemory<mode> m_memMode;
 
-			// Speed sampling
-			SpeedSample m_speed;
+			cl_ulong m_round;
 		};
 
 	public:
@@ -66,10 +60,9 @@ class Dispatcher {
 		~Dispatcher();
 
 		void addDevice(cl_device_id clDeviceId, const size_t worksizeLocal, const size_t index);
-		void run(const mode & mode, const std::string strAddress, const std::string strInitCodeDigest);
+		void run(const mode & mode);
 
 	private:
-		void deviceInit(Device & d, const mode & mode, const std::string & strAddress, const std::string & strInitCode);
 		void deviceDispatch(Device & d);
 
 		void enqueueKernel(cl_command_queue & clQueue, cl_kernel & clKernel, size_t worksizeGlobal, const size_t worksizeLocal, cl_event * pEvent);
@@ -95,6 +88,7 @@ class Dispatcher {
 		// Run information
 		std::mutex m_mutex;
 		std::chrono::time_point<std::chrono::steady_clock> timeStart;
+		Speed m_speed;
 		unsigned int m_countPrint;
 		unsigned int m_countRunning;
 		bool m_quit;

@@ -11,10 +11,7 @@ typedef union {
 	uint d[50];
 } ethhash;
 
-#define TH_ELT(t, c0, c1, c2, c3, c4, d0, d1, d2, d3, d4) \
-{ \
-    t = rotate((ulong)(d0 ^ d1 ^ d2 ^ d3 ^ d4), (ulong)1) ^ (c0 ^ c1 ^ c2 ^ c3 ^ c4); \
-}
+#define TH_ELT_SHORT(t, d, c) t = rotate(d, (ulong) 1) ^ c
 
 #define THETA(s00, s01, s02, s03, s04, \
               s10, s11, s12, s13, s14, \
@@ -22,16 +19,23 @@ typedef union {
               s30, s31, s32, s33, s34, \
               s40, s41, s42, s43, s44) \
 { \
-    TH_ELT(t0, s40, s41, s42, s43, s44, s10, s11, s12, s13, s14); \
-    TH_ELT(t1, s00, s01, s02, s03, s04, s20, s21, s22, s23, s24); \
-    TH_ELT(t2, s10, s11, s12, s13, s14, s30, s31, s32, s33, s34); \
-    TH_ELT(t3, s20, s21, s22, s23, s24, s40, s41, s42, s43, s44); \
-    TH_ELT(t4, s30, s31, s32, s33, s34, s00, s01, s02, s03, s04); \
-    s00 ^= t0; s01 ^= t0; s02 ^= t0; s03 ^= t0; s04 ^= t0; \
-    s10 ^= t1; s11 ^= t1; s12 ^= t1; s13 ^= t1; s14 ^= t1; \
-    s20 ^= t2; s21 ^= t2; s22 ^= t2; s23 ^= t2; s24 ^= t2; \
-    s30 ^= t3; s31 ^= t3; s32 ^= t3; s33 ^= t3; s34 ^= t3; \
-    s40 ^= t4; s41 ^= t4; s42 ^= t4; s43 ^= t4; s44 ^= t4; \
+	t0 = s00 ^ s01 ^ s02 ^ s03 ^ s04;                      \
+	t1 = s10 ^ s11 ^ s12 ^ s13 ^ s14;                      \
+	t2 = s20 ^ s21 ^ s22 ^ s23 ^ s24;                      \
+	t3 = s30 ^ s31 ^ s32 ^ s33 ^ s34;                      \
+	t4 = s40 ^ s41 ^ s42 ^ s43 ^ s44;                      \
+                                                           \
+	TH_ELT_SHORT(t5, t0, t3);                              \
+	TH_ELT_SHORT(t0, t2, t0);                              \
+	TH_ELT_SHORT(t2, t4, t2);                              \
+	TH_ELT_SHORT(t4, t1, t4);                              \
+	TH_ELT_SHORT(t1, t3, t1);                              \
+                                                           \
+    s00 ^= t4; s01 ^= t4; s02 ^= t4; s03 ^= t4; s04 ^= t4; \
+    s10 ^= t0; s11 ^= t0; s12 ^= t0; s13 ^= t0; s14 ^= t0; \
+    s20 ^= t1; s21 ^= t1; s22 ^= t1; s23 ^= t1; s24 ^= t1; \
+    s30 ^= t2; s31 ^= t2; s32 ^= t2; s33 ^= t2; s34 ^= t2; \
+    s40 ^= t5; s41 ^= t5; s42 ^= t5; s43 ^= t5; s44 ^= t5; \
 }
 
 #define RHOPI(s00, s01, s02, s03, s04, \
@@ -73,40 +77,11 @@ typedef union {
             s30, s31, s32, s33, s34, \
             s40, s41, s42, s43, s44) \
 { \
-    t0 = s00 ^ (~s10 &  s20); \
-    t1 = s10 ^ (~s20 &  s30); \
-    t2 = s20 ^ (~s30 &  s40); \
-    t3 = s30 ^ (~s40 &  s00); \
-    t4 = s40 ^ (~s00 &  s10); \
-    s00 = t0; s10 = t1; s20 = t2; s30 = t3; s40 = t4; \
-    \
-    t0 = s01 ^ (~s11 &  s21); \
-    t1 = s11 ^ (~s21 &  s31); \
-    t2 = s21 ^ (~s31 &  s41); \
-    t3 = s31 ^ (~s41 &  s01); \
-    t4 = s41 ^ (~s01 &  s11); \
-    s01 = t0; s11 = t1; s21 = t2; s31 = t3; s41 = t4; \
-    \
-    t0 = s02 ^ (~s12 &  s22); \
-    t1 = s12 ^ (~s22 &  s32); \
-    t2 = s22 ^ (~s32 &  s42); \
-    t3 = s32 ^ (~s42 &  s02); \
-    t4 = s42 ^ (~s02 &  s12); \
-    s02 = t0; s12 = t1; s22 = t2; s32 = t3; s42 = t4; \
-    \
-    t0 = s03 ^ (~s13 &  s23); \
-    t1 = s13 ^ (~s23 &  s33); \
-    t2 = s23 ^ (~s33 &  s43); \
-    t3 = s33 ^ (~s43 &  s03); \
-    t4 = s43 ^ (~s03 &  s13); \
-    s03 = t0; s13 = t1; s23 = t2; s33 = t3; s43 = t4; \
-    \
-    t0 = s04 ^ (~s14 &  s24); \
-    t1 = s14 ^ (~s24 &  s34); \
-    t2 = s24 ^ (~s34 &  s44); \
-    t3 = s34 ^ (~s44 &  s04); \
-    t4 = s44 ^ (~s04 &  s14); \
-    s04 = t0; s14 = t1; s24 = t2; s34 = t3; s44 = t4; \
+	t0 = s00; t1 = s10; s00 ^= (~t1) & s20; s10 ^= (~s20) & s30; s20 ^= (~s30) & s40; s30 ^= (~s40) & t0; s40 ^= (~t0) & t1; \
+	t0 = s01; t1 = s11; s01 ^= (~t1) & s21; s11 ^= (~s21) & s31; s21 ^= (~s31) & s41; s31 ^= (~s41) & t0; s41 ^= (~t0) & t1; \
+	t0 = s02; t1 = s12; s02 ^= (~t1) & s22; s12 ^= (~s22) & s32; s22 ^= (~s32) & s42; s32 ^= (~s42) & t0; s42 ^= (~t0) & t1; \
+	t0 = s03; t1 = s13; s03 ^= (~t1) & s23; s13 ^= (~s23) & s33; s23 ^= (~s33) & s43; s33 ^= (~s43) & t0; s43 ^= (~t0) & t1; \
+	t0 = s04; t1 = s14; s04 ^= (~t1) & s24; s14 ^= (~s24) & s34; s24 ^= (~s34) & s44; s34 ^= (~s44) & t0; s44 ^= (~t0) & t1; \
 }
 
 #define IOTA(s00, r) { s00 ^= r; }
@@ -125,9 +100,9 @@ __constant ulong keccakf_rndc[24] = {
 // Barely a bottleneck. No need to tinker more.
 void sha3_keccakf(ethhash * const h)
 {
-	ulong * const st = &h->q;
+	ulong * const st = h->q;
 	h->d[33] ^= 0x80000000;
-	ulong t0, t1, t2, t3, t4;
+	ulong t0, t1, t2, t3, t4, t5;
 
 	// Unrolling and removing PI stage gave negligable performance on GTX 1070.
 	for (int i = 0; i < 24; ++i) {
