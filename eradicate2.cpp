@@ -179,6 +179,7 @@ int main(int argc, char * * argv) {
 		ArgParser argp(argc, argv);
 		bool bHelp = false;
 		bool bModeBenchmark = false;
+		bool bModeZeroBytes = false;
 		bool bModeZeros = false;
 		bool bModeLetters = false;
 		bool bModeNumbers = false;
@@ -200,6 +201,7 @@ int main(int argc, char * * argv) {
 
 		argp.addSwitch('h', "help", bHelp);
 		argp.addSwitch('0', "benchmark", bModeBenchmark);
+		argp.addSwitch('z', "zero-bytes", bModeZeroBytes);
 		argp.addSwitch('1', "zeros", bModeZeros);
 		argp.addSwitch('2', "letters", bModeLetters);
 		argp.addSwitch('3', "numbers", bModeNumbers);
@@ -248,7 +250,9 @@ int main(int argc, char * * argv) {
 		mode mode = ModeFactory::benchmark();
 		if (bModeBenchmark) {
 			mode = ModeFactory::benchmark();
-		} else if (bModeZeros) {
+		} else if (bModeZeroBytes) {
+			mode = ModeFactory::zerobytes();
+		}  else if (bModeZeros) {
 			mode = ModeFactory::zeros();
 		} else if (bModeLetters) {
 			mode = ModeFactory::letters();

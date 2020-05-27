@@ -1,5 +1,5 @@
 enum ModeFunction {
-	Benchmark, Matching, Leading, Range, Mirror, Doubles, LeadingRange
+	Benchmark, ZeroBytes, Matching, Leading, Range, Mirror, Doubles, LeadingRange
 };
 
 typedef struct {
@@ -18,6 +18,7 @@ __kernel void eradicate2_iterate(__global result * const pResult, __global const
 void eradicate2_result_update(const uchar * const hash, __global result * const pResult, const uchar score, const uchar scoreMax, const uint deviceIndex, const uint round);
 void eradicate2_score_leading(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
 void eradicate2_score_benchmark(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
+void eradicate2_score_zerobytes(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
 void eradicate2_score_matching(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
 void eradicate2_score_range(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
 void eradicate2_score_leadingrange(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
@@ -40,12 +41,16 @@ __kernel void eradicate2_iterate(__global result * const pResult, __global const
 	sha3_keccakf(&h);
 
 	/* enum class ModeFunction {
-	 *      Benchmark, Matching, Leading, Range, Mirror, Doubles, LeadingRange
+	 *      Benchmark, ZeroBytes, Matching, Leading, Range, Mirror, Doubles, LeadingRange
 	 * };
 	 */
 	switch (pMode->function) {
 	case Benchmark:
 		eradicate2_score_benchmark(h.b + 12, pResult, pMode, scoreMax, deviceIndex, round);
+		break;
+
+	case ZeroBytes:
+		eradicate2_score_zerobytes(h.b + 12, pResult, pMode, scoreMax, deviceIndex, round);
 		break;
 
 	case Matching:
@@ -122,6 +127,17 @@ void eradicate2_score_leading(const uchar * const hash, __global result * const 
 void eradicate2_score_benchmark(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round) {
 	const size_t id = get_global_id(0);
 	int score = 0;
+
+	eradicate2_result_update(hash, pResult, score, scoreMax, deviceIndex, round);
+}
+
+void eradicate2_score_zerobytes(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round) {
+	const size_t id = get_global_id(0);
+	int score = 0;
+
+	for (int i = 0; i < 20; ++i) {
+		score += !hash[i];
+	}
 
 	eradicate2_result_update(hash, pResult, score, scoreMax, deviceIndex, round);
 }

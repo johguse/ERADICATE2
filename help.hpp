@@ -19,6 +19,7 @@ usage: ./ERADICATE2 [OPTIONS]
   Basic modes:
     --benchmark             Run without any scoring, a benchmark.
     --zeros                 Score on zeros anywhere in hash.
+    --zero-bytes            Score on zero bytes anywhere in hash.
     --letters               Score on letters anywhere in hash.
     --numbers               Score on numbers anywhere in hash.
     --mirror                Score on mirroring from center.

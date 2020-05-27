@@ -8,6 +8,12 @@ mode ModeFactory::benchmark() {
 	return r;
 }
 
+mode ModeFactory::zerobytes() {
+	mode r;
+	r.function = ModeFunction::ZeroBytes;
+	return r;
+}
+
 mode ModeFactory::zeros() {
 	return range(0, 0);
 }

@@ -18,6 +18,7 @@ class ModeFactory {
 		static mode mirror();
 
 		static mode benchmark();
+		static mode zerobytes();
 		static mode zeros();
 		static mode letters();
 		static mode numbers();

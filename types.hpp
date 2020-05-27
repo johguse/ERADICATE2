@@ -11,7 +11,7 @@
 #endif
 
 enum class ModeFunction {
-	Benchmark, Matching, Leading, Range, Mirror, Doubles, LeadingRange
+	Benchmark, ZeroBytes, Matching, Leading, Range, Mirror, Doubles, LeadingRange
 };
 
 typedef struct {
