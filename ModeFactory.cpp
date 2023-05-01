@@ -88,3 +88,10 @@ mode ModeFactory::doubles() {
 	r.function = ModeFunction::Doubles;
 	return r;
 }
+
+mode ModeFactory::startEnd(const char hex) {
+	mode r;
+	r.function = ModeFunction::StartEnd;
+    r.data1[0] = static_cast<cl_uchar>(hexValue(hex));
+	return r;
+}

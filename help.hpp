@@ -28,6 +28,7 @@ usage: ./ERADICATE2 [OPTIONS]
   Modes with arguments:
     --leading <single hex>  Score on hashes leading with given hex character.
     --matching <hex string> Score on hashes matching given hex string.
+    --start-end <hex>       Score on hashes start & end with given hex character.
 
   Advanced modes:
     --leading-range         Scores on hashes leading with characters within

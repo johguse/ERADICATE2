@@ -1,5 +1,5 @@
 enum ModeFunction {
-	Benchmark, ZeroBytes, Matching, Leading, Range, Mirror, Doubles, LeadingRange
+	Benchmark, ZeroBytes, Matching, Leading, Range, Mirror, Doubles, LeadingRange, StartEnd
 };
 
 typedef struct {
@@ -23,6 +23,7 @@ void eradicate2_score_matching(const uchar * const hash, __global result * const
 void eradicate2_score_range(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
 void eradicate2_score_leadingrange(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
 void eradicate2_score_mirror(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
+void eradicate2_score_startend(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
 void eradicate2_score_doubles(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
 
 __kernel void eradicate2_iterate(__global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round) {
@@ -67,6 +68,10 @@ __kernel void eradicate2_iterate(__global result * const pResult, __global const
 
 	case Mirror:
 		eradicate2_score_mirror(h.b + 12, pResult, pMode, scoreMax, deviceIndex, round);
+		break;
+
+	case StartEnd:
+		eradicate2_score_startend(h.b + 12, pResult, pMode, scoreMax, deviceIndex, round);
 		break;
 
 	case Doubles:
@@ -223,6 +228,37 @@ void eradicate2_score_mirror(const uchar * const hash, __global result * const p
 		}
 
 		++score;
+	}
+
+	eradicate2_result_update(hash, pResult, score, scoreMax, deviceIndex, round);
+}
+
+void eradicate2_score_startend(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round) {
+	const size_t id = get_global_id(0);
+	int score = 0;
+	int err = 0;
+
+	for (int i = 0; i < 10 && !err; ++i) {
+		const uchar leftLeft = (hash[i] & 0xF0) >> 4;
+		const uchar leftRight = (hash[i] & 0x0F);
+
+		const uchar rightLeft = (hash[19 - i] & 0xF0) >> 4;
+		const uchar rightRight = (hash[19 - i] & 0x0F);
+
+		if (leftLeft != rightRight || leftLeft != pMode->data1[0]) {
+			err = 1;
+			break;
+		}
+
+		score += 2;
+
+		if (leftRight != rightLeft || leftRight != pMode->data1[0]) {
+		    if(leftRight == pMode->data1[0]) ++score;
+		    	err = 1;
+			break;
+		}
+
+        	score += 2;
 	}
 
 	eradicate2_result_update(hash, pResult, score, scoreMax, deviceIndex, round);
