@@ -23,6 +23,7 @@ class ModeFactory {
 		static mode letters();
 		static mode numbers();
 		static mode doubles();
+	        static mode startEnd(const char charLeading);
 };
 
 #endif /* HPP_MODEFACTORY */

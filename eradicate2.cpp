@@ -189,6 +189,7 @@ int main(int argc, char * * argv) {
 		bool bModeRange = false;
 		bool bModeMirror = false;
 		bool bModeDoubles = false;
+		std::string strModeStartEnd;
 		int rangeMin = 0;
 		int rangeMax = 0;
 		std::vector<size_t> vDeviceSkipIndex;
@@ -211,6 +212,7 @@ int main(int argc, char * * argv) {
 		argp.addSwitch('7', "range", bModeRange);
 		argp.addSwitch('8', "mirror", bModeMirror);
 		argp.addSwitch('9', "leading-doubles", bModeDoubles);
+		argp.addSwitch('z', "start-end", strModeStartEnd);
 		argp.addSwitch('m', "min", rangeMin);
 		argp.addSwitch('M', "max", rangeMax);
 		argp.addMultiSwitch('s', "skip", vDeviceSkipIndex);
@@ -270,6 +272,8 @@ int main(int argc, char * * argv) {
 			mode = ModeFactory::mirror();
 		} else if (bModeDoubles) {
 			mode = ModeFactory::doubles();
+		} else if (!strModeStartEnd.empty()) {
+			mode = ModeFactory::startEnd(strModeStartEnd.front());
 		} else {
 			std::cout << g_strHelp << std::endl;
 			return 0;
