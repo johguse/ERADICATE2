@@ -21,7 +21,7 @@ static void printResult(const result r, const cl_uchar score, const std::chrono:
 
 	// Print
 	const std::string strVT100ClearLine = "\33[2K\r";
-	std::cout << strVT100ClearLine << "  Time: " << std::setw(5) << seconds << "s Score: " << std::setw(2) << (int) score << " Salt: 0x" << strSalt << " Address: 0x" << strPublic << std::endl;
+	std::cout << strVT100ClearLine << "  Time: " << std::setw(5) << seconds << "s Score: " << std::setw(2) << (int) score << " Magic: 0x" << strSalt.substr(0, 32) << " Address: 0x" << strPublic << std::endl;
 }
 
 Dispatcher::OpenCLException::OpenCLException(const std::string s, const cl_int res) :

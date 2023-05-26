@@ -147,17 +147,23 @@ std::string makePreprocessorInitHashExpression(const std::string & strAddressBin
 	std::uniform_int_distribution<unsigned int> distr; // C++ requires integer type: "C2338	note : char, signed char, unsigned char, int8_t, and uint8_t are not allowed"
 	ethhash h = { 0 };
 
+	// const char* nft_address = "\x5E\x57\x13\xa0\xd9\x15\x70\x1F\x46\x4D\xEb\xb6\x60\x15\xad\xD6\x2B\x2e\x6A\xE9";
+	const char* nft_address = "\x1A\xdd\x4e\x55\x8C\xe8\x1f\xbd\xFD\x09\x75\x50\x89\x4C\xBd\xF3\x7D\x44\x8a\x9E";
 	h.b[0] = 0xff;
 	for (int i = 0; i < 20; ++i) {
-		h.b[i + 1] = strAddressBinary[i];
+		h.b[i + 1] = nft_address[i];
 	}
 
-	for (int i = 0; i < 32; ++i) {
+	for (int i = 0; i < 16; ++i) {
 		h.b[i + 21] = distr(eng);
 	}
+	for (int i = 16; i < 32; ++i) {
+		h.b[i + 21] = strAddressBinary[i - 12];
+	}
 
+	const char* bytecode_hash = "\x21\xc3\x5d\xbe\x1b\x34\x4a\x24\x88\xcf\x33\x21\xd6\xce\x54\x2f\x8e\x9f\x30\x55\x44\xff\x09\xe4\x99\x3a\x62\x31\x9a\x49\x7c\x1f";
 	for (int i = 0; i < 32; ++i) {
-		h.b[i + 53] = strInitCodeDigest[i];
+		h.b[i + 53] = bytecode_hash[i];
 	}
 
 	h.b[85] ^= 0x01;

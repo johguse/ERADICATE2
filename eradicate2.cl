@@ -37,8 +37,20 @@ __kernel void eradicate2_iterate(__global result * const pResult, __global const
 	h.d[7] += get_global_id(0);
 	h.d[8] += round;
 
-	// Hash
+	// Hash for CREATE2
 	sha3_keccakf(&h);
+
+	// Hash for CREATE
+	ethhash h2 = { 0 };
+	h2.b[0] = 0xd6;
+	h2.b[1] = 0x94;
+	for (int i = 0; i < 20; i++) {
+		h2.b[2 + i] = h.b[12 + i];
+	}
+	h2.b[22] = 0x01;
+	h2.b[23] ^= 0x01; // IDK why but it works
+	sha3_keccakf(&h2);
+	h = h2;
 
 	/* enum class ModeFunction {
 	 *      Benchmark, ZeroBytes, Matching, Leading, Range, Mirror, Doubles, LeadingRange
