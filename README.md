@@ -22,6 +22,7 @@ usage: ./ERADICATE2 [OPTIONS]
 
   Modes with arguments:
     --leading <single hex>  Score on hashes leading with given hex character.
+    --trailing <single hex> Score on hashes trailing with given hex character.
     --matching <hex string> Score on hashes matching given hex string.
 
   Advanced modes:

@@ -185,6 +185,7 @@ int main(int argc, char * * argv) {
 		bool bModeNumbers = false;
 		std::string strModeLeading;
 		std::string strModeMatching;
+		std::string strModeTrailing;
 		bool bModeLeadingRange = false;
 		bool bModeRange = false;
 		bool bModeMirror = false;
@@ -211,6 +212,7 @@ int main(int argc, char * * argv) {
 		argp.addSwitch('7', "range", bModeRange);
 		argp.addSwitch('8', "mirror", bModeMirror);
 		argp.addSwitch('9', "leading-doubles", bModeDoubles);
+		argp.addSwitch('t', "trailing", strModeTrailing);
 		argp.addSwitch('m', "min", rangeMin);
 		argp.addSwitch('M', "max", rangeMax);
 		argp.addMultiSwitch('s', "skip", vDeviceSkipIndex);
@@ -260,6 +262,8 @@ int main(int argc, char * * argv) {
 			mode = ModeFactory::numbers();
 		} else if (!strModeLeading.empty()) {
 			mode = ModeFactory::leading(strModeLeading.front());
+		} else if (!strModeTrailing.empty()) {
+			mode = ModeFactory::trailing(strModeTrailing);
 		} else if (!strModeMatching.empty()) {
 			mode = ModeFactory::matching(strModeMatching);
 		} else if (bModeLeadingRange) {

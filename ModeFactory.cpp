@@ -46,6 +46,34 @@ mode ModeFactory::matching(const std::string strHex) {
 	return r;
 }
 
+mode ModeFactory::trailing(const std::string strHex) {
+	mode r;
+	r.function = ModeFunction::Matching;
+
+	std::fill( r.data1, r.data1 + sizeof(r.data1), cl_uchar(0) );
+	std::fill( r.data2, r.data2 + sizeof(r.data2), cl_uchar(0) );
+
+	auto index = 0;
+	
+	for( size_t i = 0; i < strHex.size(); i += 2 ) {
+		const auto indexHi = hexValueNoException(strHex[i]);
+		const auto indexLo = i + 1 < strHex.size() ? hexValueNoException(strHex[i+1]) : std::string::npos;
+
+		const auto valHi = (indexHi == std::string::npos) ? 0 : indexHi << 4;
+		const auto valLo = (indexLo == std::string::npos) ? 0 : indexLo;
+
+		const auto maskHi = (indexHi == std::string::npos) ? 0 : 0xF << 4;
+		const auto maskLo = (indexLo == std::string::npos) ? 0 : 0xF;
+
+		r.data1[20 - strHex.size()/2 + index] = maskHi | maskLo;
+		r.data2[20 - strHex.size()/2 + index] = valHi | valLo;
+
+		++index;
+	}
+
+	return r;
+}
+
 mode ModeFactory::leading(const char charLeading) {
 	mode r;
 	r.function = ModeFunction::Leading;
