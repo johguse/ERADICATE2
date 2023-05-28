@@ -1,5 +1,5 @@
 enum ModeFunction {
-	Benchmark, ZeroBytes, Matching, Leading, Range, Mirror, Doubles, LeadingRange
+	Benchmark, ZeroBytes, Matching, Leading, Range, Mirror, Doubles, LeadingRange, Trailing
 };
 
 typedef struct {
@@ -20,6 +20,7 @@ void eradicate2_score_leading(const uchar * const hash, __global result * const 
 void eradicate2_score_benchmark(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
 void eradicate2_score_zerobytes(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
 void eradicate2_score_matching(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
+void eradicate2_score_trailing(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
 void eradicate2_score_range(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
 void eradicate2_score_leadingrange(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
 void eradicate2_score_mirror(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round);
@@ -59,6 +60,10 @@ __kernel void eradicate2_iterate(__global result * const pResult, __global const
 
 	case Leading:
 		eradicate2_score_leading(h.b + 12, pResult, pMode, scoreMax, deviceIndex, round);
+		break;
+
+	case Trailing:
+		eradicate2_score_trailing(h.b + 12, pResult, pMode, scoreMax, deviceIndex, round);
 		break;
 
 	case Range:
@@ -147,6 +152,19 @@ void eradicate2_score_matching(const uchar * const hash, __global result * const
 	int score = 0;
 
 	for (int i = 0; i < 20; ++i) {
+		if (pMode->data1[i] > 0 && (hash[i] & pMode->data1[i]) == pMode->data2[i]) {
+			++score;
+		}
+	}
+
+	eradicate2_result_update(hash, pResult, score, scoreMax, deviceIndex, round);
+}
+
+void eradicate2_score_trailing(const uchar * const hash, __global result * const pResult, __global const mode * const pMode, const uchar scoreMax, const uint deviceIndex, const uint round) {
+	const size_t id = get_global_id(0);
+	int score = 0;
+
+	for (int i = 19; i > 0; --i) {
 		if (pMode->data1[i] > 0 && (hash[i] & pMode->data1[i]) == pMode->data2[i]) {
 			++score;
 		}
