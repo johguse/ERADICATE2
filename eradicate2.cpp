@@ -47,7 +47,9 @@ std::vector<cl_device_id> getAllDevices(cl_device_type deviceType = CL_DEVICE_TY
 		clGetDeviceIDs(*it, deviceType, 0, NULL, &countDevice);
 
 		std::vector<cl_device_id> deviceIds(countDevice);
-		clGetDeviceIDs(*it, deviceType, countDevice, deviceIds.data(), &countDevice);
+		if (clGetDeviceIDs(*it, deviceType, countDevice, deviceIds.data(), &countDevice) != CL_SUCCESS) {
+			continue;
+		}
 
 		std::copy( deviceIds.begin(), deviceIds.end(), std::back_inserter(vDevices) );
 	}
@@ -297,7 +299,7 @@ int main(int argc, char * * argv) {
 			const auto globalMemSize = clGetWrapper<cl_ulong>(clGetDeviceInfo, deviceId, CL_DEVICE_GLOBAL_MEM_SIZE);
 
 			std::cout << "  GPU" << i << ": " << strName << ", " << globalMemSize << " bytes available, " << computeUnits << " compute units" << std::endl;
-			vDevices.push_back(vFoundDevices[i]);
+			vDevices.push_back(deviceId);
 			mDeviceIndex[vFoundDevices[i]] = i;
 		}
 
