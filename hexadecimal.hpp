@@ -2,6 +2,7 @@
 #define HPP_HEXADECIMAL
 
 #include <string>
+#include <cstdint>
 
 std::string toHex(const uint8_t * const s, const size_t len);
 std::string::size_type hexValueNoException(char c);
