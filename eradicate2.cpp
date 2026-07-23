@@ -27,6 +27,9 @@
 std::string readFile(const char * const szFilename)
 {
 	std::ifstream in(szFilename, std::ios::in | std::ios::binary);
+	if (!in) {
+		throw std::runtime_error(std::string("could not open \"") + szFilename + "\" - kernel .cl files are loaded relative to the working directory; run ERADICATE2 from its own directory");
+	}
 	std::ostringstream contents;
 	contents << in.rdbuf();
 	return contents.str();
@@ -346,7 +349,6 @@ int main(int argc, char * * argv) {
 
 		const std::string strBuildOptions = "-D ERADICATE2_MAX_SCORE=" + lexical_cast::write(ERADICATE2_MAX_SCORE) + " -D ERADICATE2_INITHASH=" + strPreprocessorInitStructure;
 		if (printResult(clBuildProgram(clProgram, vDevices.size(), vDevices.data(), strBuildOptions.c_str(), NULL, NULL))) {
-#ifdef ERADICATE2_DEBUG
 			std::cout << std::endl;
 			std::cout << "build log:" << std::endl;
 
@@ -357,7 +359,6 @@ int main(int argc, char * * argv) {
 
 			std::cout << szLog << std::endl;
 			delete[] szLog;
-#endif
 			return 1;
 		}
 
