@@ -54,8 +54,12 @@ cl_command_queue Dispatcher::Device::createQueue(cl_context & clContext, cl_devi
 }
 
 cl_kernel Dispatcher::Device::createKernel(cl_program & clProgram, const std::string s) {
-	cl_kernel ret  = clCreateKernel(clProgram, s.c_str(), NULL);
-	return ret == NULL ? throw std::runtime_error("failed to create kernel \"" + s + "\"") : ret;
+	cl_int err = 0;
+	cl_kernel ret  = clCreateKernel(clProgram, s.c_str(), &err);
+	if (ret == NULL) {
+		throw std::runtime_error("failed to create kernel \"" + s + "\" (cl_int=" + std::to_string(err) + ")");
+	}
+	return ret;
 }
 
 Dispatcher::Device::Device(Dispatcher & parent, cl_context & clContext, cl_program & clProgram, cl_device_id clDeviceId, const size_t worksizeLocal, const size_t size, const size_t index) :
